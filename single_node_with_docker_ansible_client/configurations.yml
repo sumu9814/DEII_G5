@@ -24,24 +24,21 @@
     - setup_var.yml
 
   tasks:
-    - name: Sync full repo from client server to dev server
-      synchronize:
-        src: /home/ubuntu/DEII_G5/
-        dest: /DEII_G5/
-        recursive: yes
-        delete: yes
-        rsync_opts:
-          - "--exclude=.git"
-      delegate_to: group-5-client-server
-      become: true
+    - name: Download or update git repository on dev server
+      git:
+        repo: 'https://github.com/sumu9814/DEII_G5.git'
+        dest: /DEII_G5
+        version: main         # or your default branch
+        update: yes           # pull changes if repo already exists
+        force: yes            # reset local changes if any
 
     - name: Ensure ownership of synced repo on devserver
       file:
         path: /DEII_G5
         state: directory
         recurse: yes
-        owner: ubuntu
-        group: ubuntu
+        owner: appuser
+        group: appuser
       become: true
 
     - name: Install python3-pip on devserver
@@ -58,12 +55,13 @@
           - keras==2.10.0
           - "numpy<2.0"
           - future
+          - scikit-learn==1.0.2
       become: true
 
     - name: Sync only Flask app & best model files from dev to prodserver
       synchronize:
         src: /DEII_G5/ci_cd/development_server/
-        dest: /home/appuser/start-prediction/
+        dest: /home/appuser/star-prediction/
         recursive: yes
         delete: yes
         rsync_opts:
@@ -137,5 +135,5 @@
     - name: Run Docker Compose containers on prodserver
       shell: docker compose up -d
       args:
-        chdir: /home/appuser/start-prediction  # where Flask app & model files are synced
+        chdir: /home/appuser/star-prediction  # where Flask app & model files are synced
       become: true

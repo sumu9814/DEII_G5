@@ -1,0 +1,39 @@
+version: "3"
+services:
+  web:
+    build:
+      context: .
+      network: host
+    restart: always
+    volumes:
+      - type: bind
+        source: .
+        target: /app
+    ports:
+      - "5100:5100"
+    depends_on:
+      - rabbit
+  rabbit:
+    hostname: rabbit
+    image: rabbitmq:management
+    environment:
+      - RABBITMQ_DEFAULT_USER=rabbitmq
+      - RABBITMQ_DEFAULT_PASS=rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+  worker_1:
+    build:
+      context: .
+      network: host
+    hostname: worker_1
+    volumes:
+      - type: bind
+        source: .
+        target: /app
+    entrypoint: celery
+    command: -A workerA worker --loglevel=debug
+    links:
+      - rabbit
+    depends_on:
+      - rabbit
