@@ -26,7 +26,7 @@
   tasks:
     - name: Download or update git repository on dev server
       git:
-        repo: 'https://github.com/sumu9814/DEII_G5.git'
+        repo: 'git@github.com:sumu9814/DEII_G5.git'
         dest: /DEII_G5
         version: main         # or your default branch
         update: yes           # pull changes if repo already exists
