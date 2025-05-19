@@ -1,0 +1,141 @@
+---
+- hosts: all
+
+  tasks:
+    - name: Generate hosts file with IP-hostname mapping
+      lineinfile:
+        dest: /etc/hosts
+        regexp: '.*{{ item }}$'
+        line: "{{ hostvars[item].ansible_default_ipv4.address }} {{ item }}"
+        state: present
+      when: hostvars[item].ansible_default_ipv4.address is defined
+      with_items: "{{ groups['all'] }}"
+      become: true
+
+    - name: Update & upgrade apt packages on all hosts
+      apt:
+        update_cache: yes
+        upgrade: dist
+      become: true
+
+- hosts: devserver
+
+  vars_files:
+    - setup_var.yml
+
+  tasks:
+    - name: Sync full repo from client server to dev server
+      synchronize:
+        src: /home/ubuntu/DEII_G5/
+        dest: /DEII_G5/
+        recursive: yes
+        delete: yes
+        rsync_opts:
+          - "--exclude=.git"
+      delegate_to: group-5-client-server
+      become: true
+
+    - name: Ensure ownership of synced repo on devserver
+      file:
+        path: /DEII_G5
+        state: directory
+        recurse: yes
+        owner: ubuntu
+        group: ubuntu
+      become: true
+
+    - name: Install python3-pip on devserver
+      apt:
+        pkg: python3-pip
+        state: latest
+        update_cache: yes
+      become: true
+
+    - name: Install ML packages on devserver
+      pip:
+        name:
+          - tensorflow==2.10.0
+          - keras==2.10.0
+          - "numpy<2.0"
+          - future
+      become: true
+
+    - name: Sync only Flask app & best model files from dev to prodserver
+      synchronize:
+        src: /DEII_G5/ci_cd/development_server/
+        dest: /home/appuser/start-prediction/
+        recursive: yes
+        delete: yes
+        rsync_opts:
+          - "--exclude=.git"
+      delegate_to: devserver
+      become: true
+
+- hosts: prodserver
+
+  vars_files:
+    - setup_var.yml
+
+  tasks:
+    - name: Install extra packages needed for Docker setup
+      apt:
+        pkg: "{{ item }}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+      become: true
+
+    - name: Update & upgrade packages on prodserver
+      apt:
+        update_cache: yes
+        upgrade: dist
+      become: true
+
+    - name: Add Docker repository key on prodserver
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+      become: true
+
+    - name: Add Docker repository on prodserver
+      command: add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+      become: true
+
+    - name: Update apt cache after adding Docker repo
+      apt:
+        update_cache: yes
+        upgrade: dist
+      become: true
+
+    - name: Create Docker config directory on prodserver
+      file:
+        path: /etc/docker
+        state: directory
+      become: true
+
+    - name: Create Docker daemon.json to set MTU on prodserver
+      copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "mtu": 1450
+          }
+      become: true
+
+    - name: Install Docker CE on prodserver
+      apt:
+        pkg: docker-ce
+        state: present
+        update_cache: true
+        allow_unauthenticated: yes
+      become: true
+
+    - name: Run Docker Compose containers on prodserver
+      shell: docker compose up -d
+      args:
+        chdir: /home/appuser/start-prediction  # where Flask app & model files are synced
+      become: true
