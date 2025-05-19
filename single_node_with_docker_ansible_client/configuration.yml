@@ -22,8 +22,8 @@
    - name: Download git repository
      become: true
      git:
-      repo: 'https://github.com/sztoor/model_serving.git'
-      dest: /model_serving 
+      repo: 'https://github.com/sumu9814/DEII_G5.git'
+      dest: /DEII_G5 
       
    - name: Change ownership of a directory
      become: true
@@ -93,7 +93,7 @@
      become: true
      shell: docker compose up -d 
      args: 
-      chdir: /model_serving/ci_cd/production_server 
+      chdir: /DEII_G5/ci_cd/production_server 
 
 - hosts: devserver
   
