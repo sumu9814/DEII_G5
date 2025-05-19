@@ -1,7 +1,0 @@
-- hosts: devserver
-
-  tasks:
-
-    - name: Sync updated files to dev server
-
-

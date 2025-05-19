@@ -50,6 +50,11 @@ loaded_model = model_from_json(loaded_model_json)
 loaded_model.load_weights("model.h5")
 print("Loaded model from disk")
 
+
+#with open("model_files/best_accuracy.txt", "w") as f:
+#    f.write(str(accuracy))
+
+
 # make class predictions with the model
 predictions = np.round(loaded_model.predict(X)).flatten().astype(np.int32)
 # summarize the first 5 cases

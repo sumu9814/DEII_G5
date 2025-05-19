@@ -5,9 +5,9 @@ import numpy as np
 from tensorflow.keras.models import model_from_json
 
 
-model_json_file = './model.json'
-model_weights_file = './model.h5'
-data_file = './pima-indians-diabetes.csv'
+model_json_file = '/app/model_files/model.json'
+model_weights_file = '/app/model_files/model.h5'
+data_file = '/app/pima-indians-diabetes.csv'
 
 def load_data():
     dataset =  loadtxt(data_file, delimiter=',')
@@ -38,7 +38,7 @@ celery = Celery('workerA', broker=CELERY_BROKER_URL, backend=CELERY_RESULT_BACKE
 def add_nums(a, b):
    return a + b
 
-@celery.task
+@celery.task(name="workerA.get_predictions")
 def get_predictions():
     results ={}
     X, y = load_data()
@@ -53,7 +53,7 @@ def get_predictions():
     #print ('results:', results)
     return results
 
-@celery.task
+@celery.task(name="workerA.get_accuracy")
 def get_accuracy():
     X, y = load_data()
     loaded_model = load_model()

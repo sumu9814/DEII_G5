@@ -1,4 +1,4 @@
-version: "3"
+#version: "3"
 services:
   web:
     build:
@@ -10,7 +10,7 @@ services:
         source: .
         target: /app
     ports:
-      - "5100:5100"
+      - "5200:5100"
     depends_on:
       - rabbit
   rabbit:
@@ -32,7 +32,7 @@ services:
         source: .
         target: /app
     entrypoint: celery
-    command: -A workerA worker --loglevel=debug
+    command: -A app_files.workerA worker --loglevel=debug
     links:
       - rabbit
     depends_on:
