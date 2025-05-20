@@ -1,111 +1,290 @@
+---
 - hosts: all
-  
+  become: true
+
   tasks:
-   
-   - name: Generate hosts file
-     lineinfile: dest=/etc/hosts
-                 regexp='.*{{ item }}$'
-                 line="{{ hostvars[item].ansible_default_ipv4.address }} {{item}}"
-                 state=present            
-     when: hostvars[item].ansible_default_ipv4.address is defined
-     with_items: "{{groups['all']}}"
-     become: true
-     
-   #- name: Set hostname
-   #  hostname: name="{{inventory_hostname}}"
-   #  become: true
+    - name: Generate hosts file with IP-hostname mapping
+      lineinfile:
+        dest: /etc/hosts
+        regexp: '.*{{ item }}$'
+        line: "{{ hostvars[item].ansible_default_ipv4.address }} {{ item }}"
+        state: present
+      when: hostvars[item].ansible_default_ipv4.address is defined
+      with_items: "{{ groups['all'] }}"
 
-   - name: apt update
-     apt: update_cache=yes upgrade=dist
-     become: true
+    - name: Update & upgrade apt packages on all hosts
+      apt:
+        update_cache: yes
+        upgrade: dist
 
-   - name: Download git repository
-     become: true
-     git:
-      repo: 'https://github.com/sumu9814/DEII_G5.git'
-      dest: /DEII_G5 
-      
-   - name: Change ownership of a directory
-     become: true
-     file:
-      path: /technical-training
-      state: directory
-      recurse: yes
-      owner: appuser
-      group: appuser
+    - name: Install extra packages needed for Docker setup
+      apt:
+        pkg: "{{ item }}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
 
-- hosts: prodserver
- 
-  vars_files:
-   - setup_var.yml  
-  
-  tasks:  
-   - name: Extra packages
-     apt: pkg={{item}} state=latest update_cache=true 
-     with_items:
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - software-properties-common
-     become: true  
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
 
-   - name: apt update
-     apt: update_cache=yes upgrade=dist
-     become: true
+    - name: Add Docker repository
+      command: add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
 
-   - name: Add Docker repository key
-     apt_key:
-      url: https://download.docker.com/linux/ubuntu/gpg
-      state: present
-     become: true
+    - name: Update apt cache after adding Docker repo
+      apt:
+        update_cache: yes
+        upgrade: dist
+        become: true
+    
+    - name: Create Docker config directory
+      file:
+        path: /etc/docker
+        state: directory
 
-   - name: Add Docker repository 
-     command: add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
-     become: true
+    - name: Create Docker daemon.json to set MTU
+      copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "mtu": 1450
+          }
 
-   - name: apt update
-     apt: update_cache=yes upgrade=dist
-     become: true
-  
-   # Workaround pip issue with MTU mismatch, see: https://github.com/docker/docker.github.io/pull/9249/files
-   # MTU for SNIC is 1450, Docker default is 1500. Override so that Docker matches the host.
-   # We create the config file before installing, to avoid any need to restart the docker daemon.
-   - name: Create Ansible docker config directory.
-     become: true
-     file:
-       path: "/etc/docker"
-       state: directory
+    - name: Install Docker CE
+      apt:
+        pkg: docker-ce
+        state: present
+        update_cache: true
+        allow_unauthenticated: yes
 
-   - name: Create Ansible docker file to configure Docker MTU to match SNIC for pip issue
-     become: true
-     copy:
-       dest: "/etc/docker/daemon.json"
-       content: |
-        {
-          "mtu": 1450
-        }
+    - name: Install Docker Compose plugin
+      apt:
+        name: docker-compose-plugin
+        state: present
+        update_cache: yes
 
-   - name: Install Docker  
-     apt: pkg=docker-ce state=present update_cache=true allow_unauthenticated=yes
-     become: true
+    - name: Download or update git repository on all hosts
+      git:
+        repo: 'git@github.com:sumu9814/DEII_G5.git'
+        dest: /DEII_G5
+        version: main
+        update: yes
+        force: yes
 
-   - name: Running containers
-     become: true
-     shell: docker compose up -d 
-     args: 
-      chdir: /DEII_G5/ci_cd/production_server 
+    - name: Ensure ownership of synced repo on all hosts
+      file:
+        path: /DEII_G5
+        state: directory
+        recurse: yes
+        owner: appuser
+        group: appuser
 
 - hosts: devserver
-  
+  become: true
   vars_files:
-   - setup_var.yml
+    - setup_var.yml
 
   tasks:
-   - name: Extra packages
-     apt: pkg=python3-pip state=latest update_cache=true  
-     become: true
+    - name: Git init star-prediction folder
+      command: git init
+      args:
+        chdir: /home/appuser/star-prediction
+      ignore_errors: yes
 
-   - name: Install ML packages
-     become: true
-     pip: 
-      name: tensorflow==2.10.0, keras==2.10.0, numpy<2.0, future
+    - name: Create .gitignore in star-prediction folder
+      copy:
+        dest: /home/appuser/star-prediction/.gitignore
+        content: |
+          /*
+          !app_files/
+          !model_files/
+          !app_files/**
+          !model_files/*
+
+    - name: Apply git changes - rm cached, add, commit
+      shell: |
+        git rm -r --cached .
+        git add .
+        git commit -m "Track only app_files and model_files for Ansible config"
+      args:
+        chdir: /home/appuser/star-prediction
+      ignore_errors: yes
+
+    - name: Setup pre-commit git hook to auto-set commit author
+      copy:
+        dest: /home/appuser/star-prediction/.git/hooks/pre-commit
+        content: |
+          #!/bin/bash
+
+          # Auto-set commit author from environment variables set by SSH key
+          if [[ -n "$GIT_AUTHOR_NAME" && -n "$GIT_AUTHOR_EMAIL" ]]; then
+            git config user.name "$GIT_AUTHOR_NAME"
+            git config user.email "$GIT_AUTHOR_EMAIL"
+          fi
+        mode: '0755'
+    
+    - name: Add git remote 'production' on devserver pointing to prodserver bare repo
+      command: git remote add production appuser@130.238.28.207:/home/appuser/star-prediction
+      args:
+        chdir: /home/appuser/star-prediction
+      ignore_errors: yes
+
+    - name: Install python3-pip
+      apt:
+        pkg: python3-pip
+        state: latest
+        update_cache: yes
+
+    - name: Install ML packages via pip
+      pip:
+        name:
+          - tensorflow==2.10.0
+          - keras==2.10.0
+          - "numpy<2.0"
+          - future
+          - scikit-learn==1.0.2
+          - pandas==1.3.5
+          - matplotlib==3.5.1
+    
+    - name: Install Ansible on devserver
+      apt:
+        name: ansible
+        state: present
+        update_cache: yes
+
+    - name: Sync dev app files including docker-compose.yml from client server to devserver
+      synchronize:
+        src: /DEII_G5/ci_cd/development_server/
+        dest: /home/appuser/star-prediction/
+        recursive: yes
+        delete: yes
+
+    - name: Ensure correct permissions for star-prediction directory on devserver
+      file:
+        path: /home/appuser/star-prediction
+        state: directory
+        recurse: yes
+        owner: appuser
+        group: appuser
+
+    - name: Run Docker Compose containers on devserver
+      shell: docker compose up -d
+      args:
+        chdir: /home/appuser/star-prediction
+
+    - name: Create /etc/ansible/hosts file with devserver info
+      copy:
+        dest: /etc/ansible/hosts
+        content: "devserver ansible_host=192.168.2.176 ansible_user=appuser"
+        mode: '0644'
+
+- hosts: prodserver
+  become: true
+  vars_files:
+    - setup_var.yml
+
+  tasks:
+    - name: Ensure star-prediction folder exists on prodserver
+      file:
+        path: /home/appuser/star-prediction
+        state: directory
+        owner: appuser
+        group: appuser
+
+    - name: Initialize bare git repository in star-prediction on prodserver
+      command: git init --bare
+      args:
+        chdir: /home/appuser/star-prediction
+
+    - name: Deploy post-receive git hook on production server
+      copy:
+        dest: /home/appuser/star-prediction/hooks/post-receive
+        content: |
+          #!/bin/bash
+          while read oldrev newrev ref
+          do
+            if [[ $ref =~ .*/master$ ]]; then
+              echo "Master branch push received. Checking deployment..."
+
+              DEPLOY_DIR="/DEII_G5/ci_cd/production_server"
+              BEST_OLD_FILE="$DEPLOY_DIR/model_files/old_accuracy.txt"
+              NEW_ACC_FILE="$DEPLOY_DIR/model_files/best_accuracy.txt"
+
+              if [ ! -f "$BEST_OLD_FILE" ]; then
+                echo "0.0" > "$BEST_OLD_FILE"
+              fi
+
+              sudo git --work-tree=$DEPLOY_DIR --git-dir=/home/appuser/star-prediction checkout -f
+
+              COMMIT_MSG=$(git log -1 --pretty=%B)
+
+              FORCE_MODEL="[force model]"
+              FORCE_APP="[force app]"
+              FORCE_ALL="[force all]"
+
+              deploy_model() {
+                echo "[GITHOOK] Deploying model_files..."
+              }
+
+              deploy_app() {
+                echo "[GITHOOK] Deploying app_files..."
+              }
+
+              restart_containers() {
+                echo "[GITHOOK] Restarting Docker containers on production..."
+                cd $DEPLOY_DIR
+                sudo docker compose down
+                sudo docker compose build
+                sudo docker compose up -d --force-recreate
+              }
+
+              if echo "$COMMIT_MSG" | grep -q "$FORCE_ALL"; then
+                echo "[GITHOOK] Manual override detected: Deploy both app and model."
+                deploy_model
+                deploy_app
+                restart_containers
+                exit 0
+              elif echo "$COMMIT_MSG" | grep -q "$FORCE_MODEL"; then
+                echo "[GITHOOK] Manual override detected: Deploy model only."
+                deploy_model
+                exit 0
+              elif echo "$COMMIT_MSG" | grep -q "$FORCE_APP"; then
+                echo "[GITHOOK] Manual override detected: Deploy app only."
+                deploy_app
+                restart_containers
+                exit 0
+              fi
+
+              NEW_ACCURACY=$(cat "$NEW_ACC_FILE")
+              BEST_ACCURACY=$(cat "$BEST_OLD_FILE")
+
+              echo "Current accuracy: $BEST_ACCURACY"
+              echo "New model accuracy: $NEW_ACCURACY"
+
+              if (( $(echo "$NEW_ACCURACY > $BEST_ACCURACY" | bc -l) )); then
+                echo "[GITHOOK] Better model found. Deploying model_files."
+                echo "$NEW_ACCURACY" > "$BEST_OLD_FILE"
+                deploy_model
+              else
+                echo "[GITHOOK] No improvement in accuracy. Skipping model deployment."
+              fi
+
+            else
+              echo "Ref $ref received, but only master branch is deployed."
+            fi
+          done
+        mode: '0755'
+        owner: appuser
+        group: appuser
+
+    
+    - name: Run Docker Compose containers on prodserver
+      shell: docker compose up -d
+      args:
+        chdir: /DEII_G5/ci_cd/production_server
+      become: true
