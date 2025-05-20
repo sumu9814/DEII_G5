@@ -1,1 +1,27 @@
-ansible code to deplot the app in dev server
+# ansible code to deplot the app in dev server
+
+---
+- name: Restart Flask App Docker Containers
+  hosts: devserver
+  become: yes
+  vars:
+    app_path: /home/appuser/star-prediction
+
+  tasks:
+    - name: Ensure we are in the application directory
+      ansible.builtin.shell: |
+        cd {{ app_path }} && docker compose down
+      args:
+        chdir: "{{ app_path }}"
+
+    - name: Rebuild Docker images
+      ansible.builtin.shell: |
+        docker compose build
+      args:
+        chdir: "{{ app_path }}"
+
+    - name: Restart containers with new images
+      ansible.builtin.shell: |
+        docker compose up -d --force-recreate
+      args:
+        chdir: "{{ app_path }}"
