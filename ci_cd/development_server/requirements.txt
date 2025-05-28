@@ -5,3 +5,6 @@ tensorflow==2.10.0
 keras==2.10.0
 numpy<2.0
 future
+pandas
+scikit-learn
+joblib

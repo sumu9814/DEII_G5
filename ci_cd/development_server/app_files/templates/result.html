@@ -1,27 +1,93 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Test App</title>
+  <meta charset="UTF-8" />
+  <title>Prediction Results</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(to right, #e0eafc, #cfdef3);
+    }
+
+    h2 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    p {
+      text-align: center;
+      color: #666;
+      font-size: 1rem;
+      margin-bottom: 30px;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+      padding: 0 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 800px; /* ensure horizontal scroll on small screens */
+    }
+
+    th, td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+      font-size: 0.95rem;
+    }
+
+    th {
+      background-color: #007BFF;
+      color: white;
+      text-transform: capitalize;
+      position: sticky;
+      top: 0;
+    }
+
+    tr:hover {
+      background-color: #f1f9ff;
+    }
+
+    @media (max-width: 768px) {
+      th, td {
+        font-size: 0.85rem;
+        padding: 10px;
+      }
+    }
+  </style>
 </head>
 <body>
-
-<h1>Accuracy is {{accuracy}}</h1>
-<table BORDER=1>
-<thead>
-<tr>
-<th>True</th><th>Predicted</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-{% for val in range(7) %}
-
-<td>{{final_results['y'][val]}}</td><td>{{final_results['predicted'][val]}}</td> 
-</tr>
-{% endfor %}
-</tbody>
-</table>
+  <h2>Top Predicted Stargazers for Repositories</h2>
 
 
+  <div class="table-wrapper">
+    <p>Completed in {{ duration }} seconds</p>
+    <table>
+      <thead>
+        <tr>
+          {% for key in predictions[0].keys() %}
+          <th>{{ key }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in predictions %}
+        <tr>
+          {% for value in row.values() %}
+          <td>{{ value }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </body>
 </html>

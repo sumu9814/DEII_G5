@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Manual Entry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to right, #e0eafc, #cfdef3);
+      padding: 60px 20px;
+      margin: 0;
+    }
+
+    .form-container {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      max-width: 500px;
+      margin: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      font-size: 1.8rem;
+      margin-bottom: 25px;
+      color: #333;
+    }
+
+    label {
+      display: block;
+      margin-top: 16px;
+      font-weight: 500;
+      color: #444;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    input[type="checkbox"] {
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-top: 16px;
+      font-weight: 500;
+      color: #444;
+    }
+
+    button {
+      margin-top: 28px;
+      padding: 12px;
+      width: 100%;
+      background: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    @media (max-width: 600px) {
+      .form-container {
+        padding: 20px;
+      }
+
+      h2 {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <h2>Enter Repo Details</h2>
+    <form method="POST" action="/submit_manual">
+      <label for="description_len">Description Length:</label>
+      <input type="number" id="description_len" name="description_len" required>
+
+      <label for="language">Language:</label>
+      <input type="text" id="language" name="language" required>
+
+      <div class="checkbox-group">
+        <input type="checkbox" id="has_issues" name="has_issues" value="1">
+        <label for="has_issues">Has Issues</label>
+      </div>
+
+      <div class="checkbox-group">
+        <input type="checkbox" id="has_wiki" name="has_wiki" value="1">
+        <label for="has_wiki">Has Wiki</label>
+      </div>
+
+      <label for="days_since_created">Days Since Created:</label>
+      <input type="number" id="days_since_created" name="days_since_created" required>
+
+      <label for="days_since_updated">Days Since Updated:</label>
+      <input type="number" id="days_since_updated" name="days_since_updated" required>
+
+      <label for="days_since_pushed">Days Since Pushed:</label>
+      <input type="number" id="days_since_pushed" name="days_since_pushed" required>
+
+      <label for="commit_count">Commit Count:</label>
+      <input type="number" id="commit_count" name="commit_count" required>
+
+      <button type="submit">Predict</button>
+    </form>
+  </div>
+</body>
+</html>
