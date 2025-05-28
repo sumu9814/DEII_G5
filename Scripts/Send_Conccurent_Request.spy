@@ -1,0 +1,31 @@
+import requests
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+# set parameters
+csv = "raw_github_data_x10.csv"
+url = "http://130.238.28.199:5100/predict"
+nr_requests = 20  
+
+# define function that sends qa request
+def send(i):
+    with open(csv, "rb") as f:
+        files = {"csv_file": f}
+        start = time.time()
+        response = requests.post(url, files=files)
+        duration = time.time() - start
+        print(f"[Request {i+1}] Time: {duration:.2f}s | Status: {response.status_code}")
+
+
+def main():
+    print(f"Starting {nr_requests} concurrent requests...")
+    overall_start = time.time()
+
+    with ThreadPoolExecutor(max_workers=nr_requests) as executor:
+        executor.map(send, range(nr_requests))
+
+    overall_duration = time.time() - overall_start
+    print(f"\n All requests completed in {overall_duration:.2f} seconds.")
+
+if __name__ == "__main__":
+    main()
