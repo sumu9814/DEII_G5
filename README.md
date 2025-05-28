@@ -4,6 +4,7 @@ Docker, Docker Compose
 
 ## How to run:
 git clone https://github.com/sumu9814/DEII_G5.git
+
 cd DEII_G5/ci_cd/development_server
   - docker compose up build
   - docker compose up -d --force-recreate
@@ -16,6 +17,7 @@ cd DEII_G5/ci_cd/production_server
 There are 2 main featues for prediction:
    - upload csv with a list of features for multiple repositories
    - complete a form with the same features for a single repository
+
 If successful, both actions lead to a results page where the predicted number of stargazers is shown in a top
 
 
