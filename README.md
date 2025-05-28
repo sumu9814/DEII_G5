@@ -9,6 +9,7 @@ cd DEII_G5/ci_cd/development_server
   - docker compose up build
   - docker compose up -d --force-recreate
   - web app will start, port 5100
+  - 
 cd DEII_G5/ci_cd/production_server
   - docker compose -p star-prediction up --build -d
   - web app will start, port 5100
