@@ -40,8 +40,8 @@
       apt:
         update_cache: yes
         upgrade: dist
-        become: true
-    
+#        become: true
+
     - name: Create Docker config directory
       file:
         path: /etc/docker
@@ -70,11 +70,12 @@
 
     - name: Download or update git repository on all hosts
       git:
-        repo: 'git@github.com:sumu9814/DEII_G5.git'
+        repo: 'https://github.com/sumu9814/DEII_G5.git'
         dest: /DEII_G5
         version: main
         update: yes
         force: yes
+        key_file: /home/appuser/.ssh/github_deploy_key
 
     - name: Ensure ownership of synced repo on all hosts
       file:
@@ -84,12 +85,35 @@
         owner: appuser
         group: appuser
 
+    - name: Change Git remote origin from HTTPS to SSH
+      ansible.builtin.command: >
+          git remote set-url origin git@github.com:sumu9814/DEII_G5.git
+      args:
+        chdir: /DEII_G5
+      become: true
+      become_user: appuser
+
+    - name: Create star-prediction folder
+      file:
+        path: /home/appuser/star-prediction
+        state: directory
+        owner: appuser
+        group: appuser
+        mode: '0755'
+
 - hosts: devserver
   become: true
   vars_files:
     - setup_var.yml
 
   tasks:
+    - name: Ensure star-prediction folder exists on prodserver
+      file:
+        path: /home/appuser/star-prediction
+        state: directory
+        owner: appuser
+        group: appuser
+
     - name: Git init star-prediction folder
       command: git init
       args:
@@ -129,7 +153,7 @@
         mode: '0755'
     
     - name: Add git remote 'production' on devserver pointing to prodserver bare repo
-      command: git remote add production appuser@130.238.28.207:/home/appuser/star-prediction
+      shell: git remote add production appuser@{{ hostvars['prodserver']['ansible_host'] }}:/home/appuser/star-prediction
       args:
         chdir: /home/appuser/star-prediction
       ignore_errors: yes
@@ -159,7 +183,7 @@
 
     - name: Sync dev app files including docker-compose.yml from client server to devserver
       synchronize:
-        src: /DEII_G5/ci_cd/development_server/
+        src: ~/DEII_G5/ci_cd/development_server/
         dest: /home/appuser/star-prediction/
         recursive: yes
         delete: yes
@@ -173,9 +197,16 @@
         group: appuser
 
     - name: Run Docker Compose containers on devserver
-      shell: docker compose up -d
+      shell: sudo docker compose up -d
       args:
         chdir: /home/appuser/star-prediction
+
+    - name: Ensuring /etc/ansible folder exits
+      file:
+        path: /etc/ansible
+        state: directory
+        mode: '0755'
+      become: true
 
     - name: Create /etc/ansible/hosts file with devserver info
       copy:
@@ -240,7 +271,7 @@
                 cd $DEPLOY_DIR
                 sudo docker compose down
                 sudo docker compose build
-                sudo docker compose up -d --force-recreate
+                sudo docker compose -p star-prediction up -d --force-recreate
               }
 
               if echo "$COMMIT_MSG" | grep -q "$FORCE_ALL"; then
@@ -284,7 +315,7 @@
 
     
     - name: Run Docker Compose containers on prodserver
-      shell: docker compose up -d
+      shell: sudo docker compose -p star-prediction up -d
       args:
         chdir: /DEII_G5/ci_cd/production_server
       become: true
